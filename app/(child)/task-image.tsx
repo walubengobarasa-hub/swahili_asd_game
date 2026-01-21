@@ -3,7 +3,6 @@ import { router, useLocalSearchParams } from "expo-router";
 import React from "react";
 import { Image, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import GlassCard from "../../components/GlassCard";
-import ResponsiveGrid from "../../components/ResponsiveGrid";
 import ResponsiveScreen from "../../components/ResponsiveScreen";
 import TopBar from "../../components/TopBar";
 import { clamp } from "../../constants/responsive";
@@ -48,33 +47,84 @@ export default function TaskImage() {
         <Text style={[styles.prompt, { fontSize: promptSize }]}>Chagua picha ya mbwa.</Text>
       </GlassCard>
 
-      <View style={{ marginTop: 14 }}>
-        <ResponsiveGrid gap={12}>
-          {options.map((o) => (
-            <Pressable key={o.id} style={styles.card} onPress={() => pick(o.id)}>
+      {/* ✅ FIXED SIZE GRID */}
+      <View style={styles.grid}>
+        {options.map((o) => (
+          <View key={o.id} style={styles.gridItem}>
+            <Pressable style={styles.card} onPress={() => pick(o.id)}>
               <Image source={o.img} style={styles.img} />
-              <Text style={[styles.label, { fontSize: labelSize }]}>{o.label}</Text>
+              <View style={styles.labelWrap}>
+                <Text style={[styles.label, { fontSize: labelSize }]}>{o.label}</Text>
+              </View>
             </Pressable>
-          ))}
-        </ResponsiveGrid>
+          </View>
+        ))}
       </View>
     </ResponsiveScreen>
   );
 }
 
+const CARD_HEIGHT = 190;
+const IMAGE_HEIGHT = 120;
+
 const styles = StyleSheet.create({
-  backRow: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 10, paddingHorizontal: 4 },
+  backRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 10,
+    paddingHorizontal: 4,
+  },
   backText: { fontSize: 14, fontWeight: "800", color: COLORS.ink },
 
-  prompt: { fontWeight: "900", color: COLORS.ink, textAlign: "center" },
+  prompt: {
+    fontWeight: "900",
+    color: COLORS.ink,
+    textAlign: "center",
+  },
 
+  grid: {
+    marginTop: 14,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginHorizontal: -6,
+  },
+
+  gridItem: {
+    width: "50%",
+    paddingHorizontal: 6,
+    paddingBottom: 12,
+  },
+
+  // ✅ FIXED HEIGHT CARD
   card: {
+    height: CARD_HEIGHT,
     backgroundColor: "rgba(255,255,255,0.75)",
     borderRadius: RADIUS.lg,
     padding: 10,
     borderWidth: 1,
     borderColor: COLORS.stroke,
+    justifyContent: "flex-start",
   },
-  img: { width: "100%", aspectRatio: 1.2, borderRadius: 14, resizeMode: "cover" },
-  label: { marginTop: 8, fontWeight: "900", color: COLORS.ink, textAlign: "center" },
+
+  // ✅ FIXED IMAGE HEIGHT
+  img: {
+    width: "100%",
+    height: IMAGE_HEIGHT,
+    borderRadius: 14,
+    resizeMode: "cover",
+  },
+
+  // ✅ LABEL AREA FIXED
+  labelWrap: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  label: {
+    fontWeight: "900",
+    color: COLORS.ink,
+    textAlign: "center",
+  },
 });
