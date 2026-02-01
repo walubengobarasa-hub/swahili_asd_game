@@ -10,21 +10,30 @@ import { clamp } from "../../constants/responsive";
 import { COLORS } from "../../constants/theme";
 
 export default function Result() {
-  const { ok, topic, step } = useLocalSearchParams<{ ok?: string; topic?: string; step?: string }>();
+  const { ok, feedback, stars, session_id, child_id } = useLocalSearchParams<{
+    ok?: string;
+    feedback?: string;
+    stars?: string;
+    session_id?: string;
+    child_id?: string;
+  }>();
+
   const isOk = ok === "1";
   const { width } = useWindowDimensions();
 
   const titleSize = clamp(width * 0.07, 22, 32);
   const bodySize = clamp(width * 0.04, 14, 18);
 
-  const nextStep = String((parseInt(step ?? "1", 10) || 1) + 1);
+  const starCount = Number(stars ?? "0") || 0;
+  const msgTitle = isOk ? "Vizuri!" : "Jaribu tena";
+  const msgBody = feedback ?? (isOk ? "Umejibu sawa." : "Chagua jibu sahihi.");
 
   return (
     <ResponsiveScreen>
       <TopBar title="Result" rightIcon="⚙️" onRight={() => router.push("/(child)/caregiver-pin")} />
 
       <GlassCard>
-        <Text style={styles.rewardRow}>⭐  +1 Star</Text>
+        <Text style={styles.rewardRow}>⭐  +{starCount} Star</Text>
         <Text style={styles.stars}>⭐ ⭐ ⭐ ⭐ ⭐ ☆ ☆ ☆</Text>
       </GlassCard>
 
@@ -38,11 +47,8 @@ export default function Result() {
             )}
           </View>
 
-          <Text style={[styles.msg, { fontSize: titleSize }]}>{isOk ? "Vizuri!" : "Jaribu tena"}</Text>
-
-          <Text style={[styles.small, { fontSize: bodySize }]}>
-            {isOk ? "Umejibu sawa." : "Chagua jibu sahihi."}
-          </Text>
+          <Text style={[styles.msg, { fontSize: titleSize }]}>{msgTitle}</Text>
+          <Text style={[styles.small, { fontSize: bodySize }]}>{msgBody}</Text>
         </GlassCard>
       </View>
 
@@ -51,8 +57,8 @@ export default function Result() {
           label={isOk ? "NEXT ▶" : "TRY AGAIN ▶"}
           onPress={() =>
             router.replace({
-              pathname: "/(child)/task-image",
-              params: { topic: topic ?? "animals", step: isOk ? nextStep : step ?? "1" },
+              pathname: "/(child)/play",
+              params: { session_id: session_id ?? "", child_id: child_id ?? "" },
             })
           }
         />
@@ -68,9 +74,7 @@ export default function Result() {
 const styles = StyleSheet.create({
   rewardRow: { fontSize: 22, fontWeight: "900", color: COLORS.ink, textAlign: "center" },
   stars: { marginTop: 10, textAlign: "center", fontSize: 18 },
-
   iconWrap: { alignItems: "center", marginBottom: 8 },
-
   msg: { fontWeight: "900", color: COLORS.ink, textAlign: "center" },
   small: { marginTop: 6, fontWeight: "700", color: "rgba(28,53,87,0.75)", textAlign: "center" },
 });

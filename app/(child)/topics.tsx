@@ -1,3 +1,4 @@
+import { postJSON } from "@/lib/api";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React from "react";
@@ -28,12 +29,15 @@ export default function Topics() {
           <Pressable
             key={t.key}
             style={styles.topicCard}
-            onPress={() =>
-              router.push({
-                pathname: "/(child)/task-image",
-                params: { topic: t.key, step: "1" },
-              })
-            }
+           onPress={async () => {
+            const child_id = 1; // MVP
+            const data = await postJSON("/sessions/start", { child_id, lesson_focus: t.key });
+            router.replace({
+              pathname: "/(child)/play",
+              params: { session_id: String(data.session_id), child_id: String(child_id) },
+            });
+          }}
+
           >
             <View style={styles.topicLeft}>
               <View style={styles.iconBubble}>
