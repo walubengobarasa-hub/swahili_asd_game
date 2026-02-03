@@ -10,10 +10,16 @@ import { clamp } from "../../constants/responsive";
 import { COLORS } from "../../constants/theme";
 
 export default function Result() {
-  const { ok, feedback, stars, session_id, child_id } = useLocalSearchParams<{
+  const {
+    ok,
+    topic,
+    step,
+    session_id,
+    child_id,
+  } = useLocalSearchParams<{
     ok?: string;
-    feedback?: string;
-    stars?: string;
+    topic?: string;
+    step?: string;
     session_id?: string;
     child_id?: string;
   }>();
@@ -24,16 +30,14 @@ export default function Result() {
   const titleSize = clamp(width * 0.07, 22, 32);
   const bodySize = clamp(width * 0.04, 14, 18);
 
-  const starCount = Number(stars ?? "0") || 0;
-  const msgTitle = isOk ? "Vizuri!" : "Jaribu tena";
-  const msgBody = feedback ?? (isOk ? "Umejibu sawa." : "Chagua jibu sahihi.");
+  const nextStep = String((parseInt(step ?? "1", 10) || 1) + 1);
 
   return (
     <ResponsiveScreen>
       <TopBar title="Result" rightIcon="⚙️" onRight={() => router.push("/(child)/caregiver-pin")} />
 
       <GlassCard>
-        <Text style={styles.rewardRow}>⭐  +{starCount} Star</Text>
+        <Text style={styles.rewardRow}>⭐  +1 Star</Text>
         <Text style={styles.stars}>⭐ ⭐ ⭐ ⭐ ⭐ ☆ ☆ ☆</Text>
       </GlassCard>
 
@@ -47,8 +51,11 @@ export default function Result() {
             )}
           </View>
 
-          <Text style={[styles.msg, { fontSize: titleSize }]}>{msgTitle}</Text>
-          <Text style={[styles.small, { fontSize: bodySize }]}>{msgBody}</Text>
+          <Text style={[styles.msg, { fontSize: titleSize }]}>{isOk ? "Vizuri!" : "Jaribu tena"}</Text>
+
+          <Text style={[styles.small, { fontSize: bodySize }]}>
+            {isOk ? "Umejibu sawa." : "Chagua jibu sahihi."}
+          </Text>
         </GlassCard>
       </View>
 
@@ -58,7 +65,12 @@ export default function Result() {
           onPress={() =>
             router.replace({
               pathname: "/(child)/play",
-              params: { session_id: session_id ?? "", child_id: child_id ?? "" },
+              params: {
+                session_id: String(session_id ?? ""),
+                child_id: String(child_id ?? ""),
+                topic: String(topic ?? ""),
+                step: nextStep,
+              },
             })
           }
         />
