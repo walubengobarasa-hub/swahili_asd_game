@@ -1,12 +1,22 @@
 import { api } from "@/lib/api";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React, { useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import React, { useEffect, useMemo, useState } from "react";
+import { Alert, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import GlassCard from "../../components/GlassCard";
 import ResponsiveScreen from "../../components/ResponsiveScreen";
 import TopBar from "../../components/TopBar";
 import { COLORS, RADIUS } from "../../constants/theme";
+
+function inferIcon(key: string) {
+  const k = (key || "").toLowerCase();
+  if (k.includes("animal")) return "paw" as const;
+  if (k.includes("food") || k.includes("eat")) return "restaurant" as const;
+  if (k.includes("greet")) return "hand-left" as const;
+  if (k.includes("school")) return "school" as const;
+  if (k.includes("song") || k.includes("nyimbo")) return "musical-notes" as const;
+  return "grid" as const;
+}
 
 const TOPICS = [
   { key: "animals", label: "Animals", icon: "paw" as const },
@@ -14,6 +24,18 @@ const TOPICS = [
   { key: "greetings", label: "Greetings", icon: "hand-left" as const },
   { key: "school", label: "School", icon: "school" as const },
 ];
+
+const CHILD_ID_KEY = "child_selected_id";
+
+async function storageGet(key: string): Promise<string | null> {
+  try {
+    if (Platform.OS === "web") return window?.localStorage?.getItem(key) ?? null;
+    // MVP: avoid AsyncStorage dependency; native uses web build most of the time in this project.
+    return null;
+  } catch {
+    return null;
+  }
+}
 
 function withTimeout<T>(p: Promise<T>, ms = 12000): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -31,6 +53,38 @@ function withTimeout<T>(p: Promise<T>, ms = 12000): Promise<T> {
 export default function Topics() {
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [topics, setTopics] = useState<any[]>(TOPICS);
+  const [childId, setChildId] = useState<number | null>(null);
+
+
+  useEffect(() => {
+    (async () => {
+      const idStr = await storageGet(CHILD_ID_KEY);
+      const idNum = idStr ? Number(idStr) : NaN;
+      if (!Number.isFinite(idNum)) {
+        router.replace("/(child)/select-profile");
+        return;
+      }
+      setChildId(idNum);
+
+      // Load topics dynamically so newly added teacher topics show up on child side
+      try {
+        const remote = await withTimeout(api.getTopics(), 8000);
+        const list = Array.isArray(remote) ? remote : (remote?.topics ?? []);
+        if (Array.isArray(list) && list.length > 0) {
+          // map remote -> UI shape
+          const mapped = list.map((t: any) => ({
+            key: t.key,
+            label: t.label_en || t.label || t.key,
+            icon: inferIcon(t.key),
+          }));
+          setTopics(mapped);
+        }
+      } catch {
+        // keep fallback TOPICS
+      }
+    })();
+  }, []);
 
   return (
     <ResponsiveScreen>
@@ -42,7 +96,7 @@ export default function Topics() {
       </GlassCard>
 
       <View style={{ marginTop: 14, gap: 12 }}>
-        {TOPICS.map((t) => {
+        {topics.map((t) => {
           const isBusy = busyKey === t.key;
 
           return (
@@ -55,7 +109,8 @@ export default function Topics() {
                   setErr(null);
                   setBusyKey(t.key);
 
-                  const child_id = 1; // MVP
+                  const child_id = childId ?? NaN;
+                  if (!Number.isFinite(child_id)) throw new Error('Child not selected');
                   const data = await withTimeout(api.startSession({ child_id, lesson_focus: t.key }));
 
                   // ✅ log to confirm we got values

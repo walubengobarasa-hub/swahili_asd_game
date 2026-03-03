@@ -3,7 +3,7 @@ import { Platform } from "react-native";
 type FetchOptions = RequestInit & { json?: any };
 
 function resolveBaseUrl() {
-  const envUrl = (process.env.EXPO_PUBLIC_API_URL || process.env.EXPO_API_URL || "").trim();
+  const envUrl = (process.env.EXPO_PUBLIC_API_URL || (process.env as any).EXPO_API_URL || "").trim();
   if (envUrl) return envUrl.replace(/\/$/, "");
 
   if (Platform.OS === "web") return "http://127.0.0.1:8000";
@@ -13,6 +13,63 @@ function resolveBaseUrl() {
 
 export const BASE_URL = resolveBaseUrl();
 
+const TOKEN_KEY = "auth_token";
+const ROLE_KEY = "auth_role";
+
+// MVP storage:
+// - Web: localStorage
+// - Native: in-memory (avoids adding AsyncStorage dependency during MVP)
+const _mem: Record<string, string> = {};
+
+async function storageGet(key: string): Promise<string | null> {
+  try {
+    if (Platform.OS === "web") return window?.localStorage?.getItem(key) ?? null;
+    return _mem[key] ?? null;
+  } catch {
+    return _mem[key] ?? null;
+  }
+}
+
+async function storageSet(key: string, value: string): Promise<void> {
+  try {
+    if (Platform.OS === "web") {
+      window?.localStorage?.setItem(key, value);
+      return;
+    }
+    _mem[key] = value;
+  } catch {
+    _mem[key] = value;
+  }
+}
+
+async function storageRemove(key: string): Promise<void> {
+  try {
+    if (Platform.OS === "web") {
+      window?.localStorage?.removeItem(key);
+      return;
+    }
+    delete _mem[key];
+  } catch {
+    delete _mem[key];
+  }
+}
+
+export async function setSession(token: string, role: string) {
+  await storageSet(TOKEN_KEY, token);
+  await storageSet(ROLE_KEY, role);
+}
+
+export async function getSession(): Promise<{ token: string | null; role: string | null }> {
+  const token = await storageGet(TOKEN_KEY);
+  const role = await storageGet(ROLE_KEY);
+  return { token, role };
+}
+
+export async function clearSession() {
+  await storageRemove(TOKEN_KEY);
+  await storageRemove(ROLE_KEY);
+}
+
 async function http<T>(path: string, opts: FetchOptions = {}): Promise<T> {
   const url = `${BASE_URL}${path.startsWith("/") ? "" : "/"}${path}`;
 
@@ -21,6 +78,10 @@ async function http<T>(path: string, opts: FetchOptions = {}): Promise<T> {
     ...(opts.headers as any),
   };
 
+  // Attach token if present
+  const { token } = await getSession();
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
   let body: any = opts.body;
 
   if (opts.json !== undefined) {
@@ -28,82 +89,83 @@ async function http<T>(path: string, opts: FetchOptions = {}): Promise<T> {
     body = JSON.stringify(opts.json);
   }
 
-  let res: Response;
-  try {
-    res = await fetch(url, { ...opts, headers, body });
-  } catch (e: any) {
-    const hint =
-      Platform.OS === "android"
-        ? "If you are on Android emulator, use 10.0.2.2 instead of 127.0.0.1."
-        : "Check that the FastAPI server is running and CORS allows your app origin.";
-    throw new Error(`Failed to fetch ${url}. ${hint}`);
-  }
+  const res = await fetch(url, { ...opts, headers, body });
 
   const text = await res.text();
-  const isJson = (res.headers.get("content-type") || "").includes("application/json");
-  const data = isJson && text ? JSON.parse(text) : (text as any);
+  let data: any = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = text;
+  }
 
   if (!res.ok) {
-    const detail = (data && (data.detail || data.message)) || text || res.statusText;
-    throw new Error(`HTTP ${res.status}: ${detail}`);
+    const msg = typeof data === "string" ? data : JSON.stringify(data);
+    throw new Error(msg || `HTTP ${res.status}`);
   }
 
   return data as T;
 }
 
-/** ✅ Named exports used across screens */
-export function getJSON<T = any>(path: string, opts: RequestInit = {}) {
-  return http<T>(path, { ...opts, method: "GET" });
+export async function getJSON<T = any>(path: string): Promise<T> {
+  return http<T>(path, { method: "GET" });
 }
 
-export function postJSON<T = any>(path: string, json: any, opts: RequestInit = {}) {
-  return http<T>(path, { ...opts, method: "POST", json });
+export async function postJSON<T = any>(path: string, json: any): Promise<T> {
+  return http<T>(path, { method: "POST", json });
 }
 
-/** Existing API object (keep this for typed calls) */
+export async function request<T = any>(method: string, path: string, json?: any): Promise<T> {
+  return http<T>(path, { method, json });
+}
+
+export async function deleteJSON<T = any>(path: string): Promise<T> {
+  return http<T>(path, { method: "DELETE" });
+}
+
+
+// ------------------------------
+// Convenience API object (compat)
+// ------------------------------
+// Some screens import `{ api }` and expect methods like `api.startSession(...)`.
+// Keep these wrappers thin so we don't change existing gameplay logic.
+
 export const api = {
   baseUrl: BASE_URL,
 
+  // Gameplay/session flow
   startSession: (payload: { child_id: number; lesson_focus: string }) =>
-    postJSON<{ session_id: number; task_id: number; task: any }>("/sessions/start", payload),
+    postJSON<any>("/sessions/start", payload),
 
-  nextTask: (payload: { session_id: number; child_id: number }) =>
-    postJSON<{ task_id: number; task: any }>("/tasks/next", payload),
+  nextTask: (payload: { session_id: number; child_id?: number }) =>
+    postJSON<any>("/tasks/next", payload),
 
-  submitTask: (payload: {
-    session_id: number;
-    task_id: number;
-    child_id: number;
-    answer?: string | null;
-    response_time_ms?: number;
-    skipped?: boolean;
-    hint_used?: boolean;
-    retries?: number;
-  }) =>
-    postJSON<{ is_correct: boolean; feedback_sw: string; reward: any }>("/tasks/submit", payload),
+  submitAnswer: (payload: { session_id: number; child_id?: number; task_id?: number | string; answer: any; correct?: boolean; meta?: any }) =>
+    postJSON<any>("/tasks/submit", payload),
 
-  getChildReport: (childId: number) =>
-    getJSON<{ child_id: number; total_attempts: number; correct: number; accuracy: number }>(
-      `/reports/child/${childId}`
-    ),
+  submitTask: (payload: { session_id: number; child_id?: number; task_id?: number | string; answer: any; correct?: boolean; meta?: any }) =>
+    postJSON<any>("/tasks/submit", payload),
 
-  getCaregiverSettings: (childId: number) =>
-    getJSON<{ child_id: number; session_minutes: number; sound_on: boolean }>(
-      `/caregiver/settings/${childId}`
-    ),
+  // Topics (public)
+  getTopics: () => getJSON<any>("/topics"),
 
-  updateCaregiverSettings: (payload: { child_id: number; session_minutes: number; sound_on: boolean }) =>
-    postJSON<{ ok: boolean }>("/caregiver/settings", payload),
+  // Teacher
+  teacherTopics: {
+    list: () => getJSON<any>("/teacher/topics"),
+    create: (payload: any) => postJSON<any>("/teacher/topics", payload),
+    remove: (key: string) => deleteJSON<any>(`/teacher/topics/${encodeURIComponent(key)}`),
+  },
 
-  getPendingAi: (topic?: string) =>
-    getJSON<any[]>(topic ? `/teacher/ai/pending?topic=${encodeURIComponent(topic)}` : "/teacher/ai/pending"),
+  // Caregiver
+  caregiverChildren: {
+    list: () => getJSON<any>("/caregiver/children"),
+    create: (payload: any) => postJSON<any>("/caregiver/children", payload),
+    remove: (id: number | string) => deleteJSON<any>(`/caregiver/children/${id}`),
+  },
 
-  approveAiTask: (payload: { task_id: number; approved: boolean }) =>
-    postJSON<{ ok: boolean; task_id: number; approved: boolean }>("/teacher/ai/approve", payload),
+// Public children (MVP)
+childrenPublic: {
+  list: () => getJSON<any>("/children/public"),
+},
 
-  generateAiTask: (payload: { topic: string; target_lexicon_id: number; task_type?: string; max_words?: number }) =>
-    postJSON<any>("/ai/generate-task", payload),
-
-  uploadLexiconBulk: (payload: any) =>
-    postJSON<any>("/teacher/lexicon/bulk", payload),
 };
