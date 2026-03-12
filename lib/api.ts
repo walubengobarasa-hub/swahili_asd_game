@@ -16,9 +16,6 @@ export const BASE_URL = resolveBaseUrl();
 const TOKEN_KEY = "auth_token";
 const ROLE_KEY = "auth_role";
 
-// MVP storage:
-// - Web: localStorage
-// - Native: in-memory (avoids adding AsyncStorage dependency during MVP)
 const _mem: Record<string, string> = {};
 
 async function storageGet(key: string): Promise<string | null> {
@@ -78,7 +75,6 @@ async function http<T>(path: string, opts: FetchOptions = {}): Promise<T> {
     ...(opts.headers as any),
   };
 
-  // Attach token if present
   const { token } = await getSession();
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
@@ -123,17 +119,16 @@ export async function deleteJSON<T = any>(path: string): Promise<T> {
   return http<T>(path, { method: "DELETE" });
 }
 
-
-// ------------------------------
-// Convenience API object (compat)
-// ------------------------------
-// Some screens import `{ api }` and expect methods like `api.startSession(...)`.
-// Keep these wrappers thin so we don't change existing gameplay logic.
-
 export const api = {
   baseUrl: BASE_URL,
+  mediaUrl: (uri?: string | null) => {
+    if (!uri) return "";
+    if (uri.startsWith("http://") || uri.startsWith("https://")) return uri;
+    const base = BASE_URL.replace(/\/$/, "");
+    const path = uri.startsWith("/") ? uri : `/${uri}`;
+    return `${base}${path}`;
+  },
 
-  // Gameplay/session flow
   startSession: (payload: { child_id: number; lesson_focus: string }) =>
     postJSON<any>("/sessions/start", payload),
 
@@ -146,26 +141,22 @@ export const api = {
   submitTask: (payload: { session_id: number; child_id?: number; task_id?: number | string; answer: any; correct?: boolean; meta?: any }) =>
     postJSON<any>("/tasks/submit", payload),
 
-  // Topics (public)
   getTopics: () => getJSON<any>("/topics"),
+  getChildReport: (childId: number | string) => getJSON<any>(`/reports/child/${childId}`),
 
-  // Teacher
   teacherTopics: {
     list: () => getJSON<any>("/teacher/topics"),
     create: (payload: any) => postJSON<any>("/teacher/topics", payload),
     remove: (key: string) => deleteJSON<any>(`/teacher/topics/${encodeURIComponent(key)}`),
   },
 
-  // Caregiver
   caregiverChildren: {
     list: () => getJSON<any>("/caregiver/children"),
     create: (payload: any) => postJSON<any>("/caregiver/children", payload),
     remove: (id: number | string) => deleteJSON<any>(`/caregiver/children/${id}`),
   },
 
-// Public children (MVP)
-childrenPublic: {
-  list: () => getJSON<any>("/children/public"),
-},
-
+  childrenPublic: {
+    list: () => getJSON<any>("/children/public"),
+  },
 };

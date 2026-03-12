@@ -1,6 +1,7 @@
 import { api } from "@/lib/api";
-import React, { useMemo, useState } from "react";
-import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import React, { useMemo, useRef, useState } from "react";
+import { Animated, Image, Pressable, StyleSheet, Text, View } from "react-native";
+import AudioPromptButton from "./AudioPromptButton";
 
 type Props = { task: any; onAnswer: (answer: string, meta?: any) => void; locked?: boolean };
 
@@ -12,7 +13,6 @@ function toAbsUrl(uri?: string) {
   return `${base}${path}`;
 }
 
-// Map backend "image_url" like "/assets/images/img_dog.png" to bundled app assets.
 function localAssetFor(uri?: string | null) {
   if (!uri) return null;
   const name = String(uri).split("/").pop() || "";
@@ -46,55 +46,67 @@ export default function MatchImageTask({ task, onAnswer, locked }: Props) {
   const [selected, setSelected] = useState<number | null>(null);
 
   const prompt = task?.prompt_sw ?? "Chagua picha sahihi.";
+  const scales = useRef<Record<number, Animated.Value>>({}).current;
+
+  const scaleFor = (id: number) => {
+    if (!scales[id]) scales[id] = new Animated.Value(1);
+    return scales[id];
+  };
 
   return (
     <View style={styles.wrap}>
-      <Text style={styles.prompt}>{prompt}</Text>
+      <View style={styles.headerRow}>
+        <Text style={styles.prompt}>{prompt}</Text>
+        <AudioPromptButton
+          text={task?.target?.label_sw ?? prompt}
+          audioUrl={task?.prompt_audio_url ?? task?.target?.audio_url}
+        />
+      </View>
 
       <View style={styles.grid}>
         {options.map((opt: any) => {
           const id = Number(opt?.lexicon_id);
           const label = String(opt?.label_sw ?? "");
           const src = imageSource(opt?.image_url);
-
           const isSel = selected === id;
 
           return (
-            <Pressable
+            <Animated.View
               key={String(id)}
-              disabled={locked}
-              onPress={() => {
-                setSelected(id);
-                onAnswer(String(id), { taps: 1 });
-              }}
-              style={({ pressed }) => [
-                styles.card,
-                isSel && styles.cardSelected,
-                pressed && !locked && { opacity: 0.9 },
-                locked && { opacity: 0.6 },
-              ]}
+              style={[styles.gridCell, { transform: [{ scale: scaleFor(id) }] }]}
             >
-              <View style={styles.imageWrap}>
-                {src ? (
-                  <Image
-                    source={src as any}
-                    style={styles.image}
-                    resizeMode="cover"
-                    onError={(e) => {
-                      console.log("Image failed:", opt?.image_url, e?.nativeEvent);
-                    }}
-                  />
-                ) : (
-                  <View style={styles.imageFallback}>
-                    <Text style={styles.imageFallbackText}>🖼️</Text>
-                  </View>
-                )}
-              </View>
+              <Pressable
+                disabled={locked}
+                onPress={() => {
+                  setSelected(id);
+                  Animated.sequence([
+                    Animated.timing(scaleFor(id), { toValue: 1.04, duration: 120, useNativeDriver: true }),
+                    Animated.timing(scaleFor(id), { toValue: 1, duration: 120, useNativeDriver: true }),
+                  ]).start();
+                  onAnswer(String(id), { taps: 1 });
+                }}
+                style={({ pressed }) => [
+                  styles.card,
+                  isSel && styles.cardSelected,
+                  pressed && !locked && { opacity: 0.9 },
+                  locked && { opacity: 0.6 },
+                ]}
+              >
+                <View style={styles.imageWrap}>
+                  {src ? (
+                    <Image source={src as any} style={styles.image} resizeMode="cover" />
+                  ) : (
+                    <View style={styles.imageFallback}>
+                      <Text style={styles.imageFallbackText}>🖼️</Text>
+                    </View>
+                  )}
+                </View>
 
-              <Text style={[styles.label, isSel && styles.labelSelected]} numberOfLines={1}>
-                {label}
-              </Text>
-            </Pressable>
+                <Text style={[styles.label, isSel && styles.labelSelected]} numberOfLines={1}>
+                  {label}
+                </Text>
+              </Pressable>
+            </Animated.View>
           );
         })}
       </View>
@@ -115,15 +127,21 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
 
-  // 2-per-row grid
+  headerRow: { gap: 10 },
+
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 12,
+    marginHorizontal: -6,
+  },
+  gridCell: {
+    width: "50%",
+    paddingHorizontal: 6,
+    paddingBottom: 12,
   },
 
   card: {
-    width: "48%",
+    width: "100%",
     borderRadius: 18,
     borderWidth: 1,
     borderColor: "rgba(28,53,87,0.12)",

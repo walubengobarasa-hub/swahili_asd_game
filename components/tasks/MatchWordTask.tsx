@@ -1,6 +1,7 @@
 import { api } from "@/lib/api";
-import React, { useMemo, useState } from "react";
-import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import React, { useMemo, useRef, useState } from "react";
+import { Animated, Image, Pressable, StyleSheet, Text, View } from "react-native";
+import AudioPromptButton from "./AudioPromptButton";
 
 type Props = { task: any; onAnswer: (answer: string, meta?: any) => void; locked?: boolean };
 
@@ -46,10 +47,22 @@ export default function MatchWordTask({ task, onAnswer, locked }: Props) {
 
   const prompt = task?.prompt_sw ?? "Chagua neno sahihi.";
   const promptImgSrc = imageSource(task?.prompt_image_url);
+  const scales = useRef<Record<number, Animated.Value>>({}).current;
+
+  const scaleFor = (id: number) => {
+    if (!scales[id]) scales[id] = new Animated.Value(1);
+    return scales[id];
+  };
 
   return (
     <View style={styles.wrap}>
-      <Text style={styles.prompt}>{prompt}</Text>
+      <View style={styles.headerRow}>
+        <Text style={styles.prompt}>{prompt}</Text>
+        <AudioPromptButton
+          text={task?.target?.label_sw ?? prompt}
+          audioUrl={task?.prompt_audio_url ?? task?.target?.audio_url}
+        />
+      </View>
 
       {!!promptImgSrc && (
         <View style={styles.imageCard}>
@@ -64,22 +77,27 @@ export default function MatchWordTask({ task, onAnswer, locked }: Props) {
           const isSel = selected === id;
 
           return (
-            <Pressable
-              key={String(id)}
-              disabled={locked}
-              onPress={() => {
-                setSelected(id);
-                onAnswer(String(id), { taps: 1 });
-              }}
-              style={({ pressed }) => [
-                styles.option,
-                isSel && styles.optionSelected,
-                pressed && !locked && { opacity: 0.9 },
-                locked && { opacity: 0.6 },
-              ]}
-            >
-              <Text style={[styles.optionText, isSel && styles.optionTextSelected]}>{label}</Text>
-            </Pressable>
+            <Animated.View key={String(id)} style={{ transform: [{ scale: scaleFor(id) }] }}>
+              <Pressable
+                disabled={locked}
+                onPress={() => {
+                  setSelected(id);
+                  Animated.sequence([
+                    Animated.timing(scaleFor(id), { toValue: 1.04, duration: 120, useNativeDriver: true }),
+                    Animated.timing(scaleFor(id), { toValue: 1, duration: 120, useNativeDriver: true }),
+                  ]).start();
+                  onAnswer(String(id), { taps: 1 });
+                }}
+                style={({ pressed }) => [
+                  styles.option,
+                  isSel && styles.optionSelected,
+                  pressed && !locked && { opacity: 0.9 },
+                  locked && { opacity: 0.6 },
+                ]}
+              >
+                <Text style={[styles.optionText, isSel && styles.optionTextSelected]}>{label}</Text>
+              </Pressable>
+            </Animated.View>
           );
         })}
       </View>
@@ -94,6 +112,7 @@ const INK = "#1C3557";
 
 const styles = StyleSheet.create({
   wrap: { gap: 12 },
+  headerRow: { gap: 10 },
 
   prompt: {
     color: INK,

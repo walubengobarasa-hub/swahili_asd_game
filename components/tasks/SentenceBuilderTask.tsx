@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import AudioPromptButton from "./AudioPromptButton";
 
 type Props = { task: any; onAnswer: (answer: string, meta?: any) => void; locked?: boolean };
 
@@ -26,10 +27,15 @@ export default function SentenceBuilderTask({ task, onAnswer, locked }: Props) {
 
   return (
     <View style={styles.wrap}>
-      <Text style={styles.prompt}>{prompt}</Text>
+      <View style={styles.headerRow}>
+        <Text style={styles.prompt}>{prompt}</Text>
+        <AudioPromptButton text={prompt} audioUrl={task?.prompt_audio_url ?? task?.target?.audio_url} />
+      </View>
 
       <View style={styles.previewCard}>
-        <Text style={styles.previewText}>{picked.length ? picked.join(" ") : "Chagua maneno hapo chini…"}</Text>
+        <Text style={styles.previewText}>
+          {picked.length ? picked.join(" ") : "Chagua maneno hapo chini…"}
+        </Text>
       </View>
 
       <View style={styles.tilesWrap}>
@@ -75,6 +81,7 @@ const INK = "#1C3557";
 
 const styles = StyleSheet.create({
   wrap: { gap: 12 },
+  headerRow: { gap: 10 },
 
   prompt: {
     color: INK,

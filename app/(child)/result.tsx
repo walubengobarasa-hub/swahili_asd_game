@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import React from "react";
-import { StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import React, { useEffect, useRef } from "react";
+import { Animated, Easing, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import BigGreenButton from "../../components/BigGreenButton";
 import GlassCard from "../../components/GlassCard";
 import ResponsiveScreen from "../../components/ResponsiveScreen";
@@ -10,13 +10,7 @@ import { clamp } from "../../constants/responsive";
 import { COLORS } from "../../constants/theme";
 
 export default function Result() {
-  const {
-    ok,
-    topic,
-    step,
-    session_id,
-    child_id,
-  } = useLocalSearchParams<{
+  const { ok, topic, step, session_id, child_id } = useLocalSearchParams<{
     ok?: string;
     topic?: string;
     step?: string;
@@ -29,17 +23,50 @@ export default function Result() {
 
   const titleSize = clamp(width * 0.07, 22, 32);
   const bodySize = clamp(width * 0.04, 14, 18);
-
   const nextStep = String((parseInt(step ?? "1", 10) || 1) + 1);
+
+  const pop = useRef(new Animated.Value(0.85)).current;
+  const glow = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(pop, { toValue: 1, friction: 5, tension: 120, useNativeDriver: true }),
+      Animated.timing(glow, {
+        toValue: 1,
+        duration: 420,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: false,
+      }),
+    ]).start();
+  }, [glow, pop]);
 
   return (
     <ResponsiveScreen>
-      <TopBar title="Result" rightIcon="⚙️" onRight={() => router.push("/(child)/caregiver-pin")} />
+     <TopBar title="Result" rightIcon="⚙️" onRight={() => router.push("/login")} />
 
-      <GlassCard>
-        <Text style={styles.rewardRow}>⭐  +1 Star</Text>
-        <Text style={styles.stars}>⭐ ⭐ ⭐ ⭐ ⭐ ☆ ☆ ☆</Text>
-      </GlassCard>
+      <Animated.View style={{ transform: [{ scale: pop }] }}>
+        <GlassCard>
+          <Text style={styles.rewardRow}>{isOk ? "🎉  +1 Star" : "💪  Keep Going"}</Text>
+          <Animated.View
+            style={[
+              styles.rewardBadge,
+              {
+                opacity: glow,
+                transform: [
+                  {
+                    scale: glow.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.9, 1],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+            <Text style={styles.stars}>{isOk ? "⭐ ⭐ ⭐ ⭐ ⭐ ☆ ☆ ☆" : "🌈 ⭐ 🌈"}</Text>
+          </Animated.View>
+        </GlassCard>
+      </Animated.View>
 
       <View style={{ marginTop: 16 }}>
         <GlassCard>
@@ -52,7 +79,6 @@ export default function Result() {
           </View>
 
           <Text style={[styles.msg, { fontSize: titleSize }]}>{isOk ? "Vizuri!" : "Jaribu tena"}</Text>
-
           <Text style={[styles.small, { fontSize: bodySize }]}>
             {isOk ? "Umejibu sawa." : "Chagua jibu sahihi."}
           </Text>
@@ -85,8 +111,21 @@ export default function Result() {
 
 const styles = StyleSheet.create({
   rewardRow: { fontSize: 22, fontWeight: "900", color: COLORS.ink, textAlign: "center" },
-  stars: { marginTop: 10, textAlign: "center", fontSize: 18 },
+  stars: { textAlign: "center", fontSize: 18 },
+  rewardBadge: {
+    marginTop: 10,
+    alignSelf: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 999,
+    backgroundColor: "rgba(250,202,34,0.20)",
+  },
   iconWrap: { alignItems: "center", marginBottom: 8 },
   msg: { fontWeight: "900", color: COLORS.ink, textAlign: "center" },
-  small: { marginTop: 6, fontWeight: "700", color: "rgba(28,53,87,0.75)", textAlign: "center" },
+  small: {
+    marginTop: 6,
+    fontWeight: "700",
+    color: "rgba(28,53,87,0.75)",
+    textAlign: "center",
+  },
 });
