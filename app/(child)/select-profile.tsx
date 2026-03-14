@@ -1,7 +1,7 @@
-import { api } from "@/lib/api";
+import { api, getSession } from "@/lib/api";
 import { router } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
-import { Alert, FlatList, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { FlatList, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import BigGreenButton from "../../components/BigGreenButton";
 import GlassCard from "../../components/GlassCard";
 import ResponsiveScreen from "../../components/ResponsiveScreen";
@@ -14,31 +14,35 @@ const CHILD_NAME_KEY = "child_selected_name";
 async function storageSet(key: string, value: string) {
   try {
     if (Platform.OS === "web") window?.localStorage?.setItem(key, value);
-    // MVP: native persistence not required; avoids AsyncStorage dependency.
   } catch {}
-}
-
-async function storageGet(key: string): Promise<string | null> {
-  try {
-    if (Platform.OS === "web") return window?.localStorage?.getItem(key) ?? null;
-    return null;
-  } catch {
-    return null;
-  }
 }
 
 export default function SelectProfile() {
   const [children, setChildren] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [loggedIn, setLoggedIn] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setErr(null);
+
     try {
+      const { token, role } = await getSession();
+      const ok = !!token && role === "caregiver";
+      setLoggedIn(ok);
+
+      if (!ok) {
+        setChildren([]);
+        setErr("Caregiver login is required to see child profiles.");
+        return;
+      }
+
       const list = await api.childrenPublic.list();
-      setChildren(Array.isArray(list) ? list : (list?.children ?? []));
+      setChildren(Array.isArray(list) ? list : list?.children ?? []);
     } catch (e: any) {
-      // likely not logged in caregiver
       setChildren([]);
+      setErr(e?.message || "Failed to load your child profiles.");
     } finally {
       setLoading(false);
     }
@@ -56,21 +60,25 @@ export default function SelectProfile() {
     router.replace("/(child)/topics");
   };
 
-  const goLogin = () => router.push("/login?role=caregiver");
-
   return (
     <ResponsiveScreen>
       <TopBar title="Select Profile" onBack={() => router.back()} />
       <GlassCard>
         <Text style={styles.h1}>Choose a child profile</Text>
         <Text style={styles.sub}>
-          To start the game, select a child profile from the database. If you don’t see any profiles, log in as a caregiver and add one.
+          Only children linked to the logged-in caregiver are shown here.
         </Text>
 
-        {children.length === 0 ? (
+        {!!err && <Text style={styles.err}>{err}</Text>}
+
+        {!loggedIn ? (
           <View style={{ marginTop: 14 }}>
-            <Text style={styles.empty}>No child profiles found.</Text>
-            <BigGreenButton label="CARE​GIVER LOGIN" onPress={goLogin} />
+            <BigGreenButton label="CAREGIVER LOGIN" onPress={() => router.push("/login?role=caregiver")} />
+          </View>
+        ) : children.length === 0 ? (
+          <View style={{ marginTop: 14 }}>
+            <Text style={styles.empty}>{loading ? "Loading..." : "No child profiles found for your account."}</Text>
+            <BigGreenButton label="ADD CHILDREN" onPress={() => router.push("/(caregiver)/children")} />
             <View style={{ height: 10 }} />
             <BigGreenButton label="REFRESH" onPress={load} />
           </View>
@@ -85,7 +93,9 @@ export default function SelectProfile() {
               <Pressable onPress={() => pick(item)} style={styles.row}>
                 <View>
                   <Text style={styles.name}>{item.display_name ?? item.name ?? "Child"}</Text>
-                  <Text style={styles.meta}>Age: {item.age_years ?? item.age ?? "-"}</Text>
+                  <Text style={styles.meta}>
+                    Age: {item.age_years ?? item.age ?? "-"} • Level: {item.current_level ?? 1}
+                  </Text>
                 </View>
                 <Text style={styles.cta}>Select</Text>
               </Pressable>
@@ -100,6 +110,7 @@ export default function SelectProfile() {
 const styles = StyleSheet.create({
   h1: { fontSize: 18, fontWeight: "800", color: COLORS.text },
   sub: { marginTop: 6, color: COLORS.textMuted, lineHeight: 18 },
+  err: { marginTop: 10, color: "#b42318", fontWeight: "800" },
   empty: { color: COLORS.textMuted, marginBottom: 10 },
   row: {
     padding: 14,

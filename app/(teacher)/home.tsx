@@ -17,42 +17,71 @@ export default function TeacherHome() {
       <GlassCard>
         <Text style={styles.h1}>Teacher Tools</Text>
         <Text style={styles.p}>
-          Generate AI tasks, review pending items, and manage lesson focus. Built mobile-first for quick moderation.
+          Generate AI tasks, review pending items, manage lesson focus, and view child-level analytics for each learner.
         </Text>
       </GlassCard>
 
       <View style={[styles.grid, isWide && styles.gridWide]}>
-        <Pressable onPress={() => router.push("/(teacher)/generate")} style={({ pressed }) => [styles.card, pressed && { opacity: 0.92 }]}>
+        <Pressable
+          onPress={() => router.push("/(teacher)/generate")}
+          style={({ pressed }) => [styles.card, pressed && { opacity: 0.92 }]}
+        >
           <Text style={styles.title}>Generate AI Task</Text>
           <Text style={styles.desc}>Create a candidate task using the model.</Text>
         </Pressable>
 
-        <Pressable onPress={() => router.push("/(teacher)/review")} style={({ pressed }) => [styles.card, pressed && { opacity: 0.92 }]}>
+        <Pressable
+          onPress={() => router.push("/(teacher)/review")}
+          style={({ pressed }) => [styles.card, pressed && { opacity: 0.92 }]}
+        >
           <Text style={styles.title}>Review Pending</Text>
           <Text style={styles.desc}>Approve or reject AI tasks.</Text>
         </Pressable>
 
-        <Pressable onPress={() => router.push("/(teacher)/lesson-focus")} style={({ pressed }) => [styles.card, pressed && { opacity: 0.92 }]}>
+        <Pressable
+          onPress={() => router.push("/(teacher)/child-progress")}
+          style={({ pressed }) => [styles.card, pressed && { opacity: 0.92 }]}
+        >
+          <Text style={styles.title}>Child Analytics</Text>
+          <Text style={styles.desc}>View child-level analytics per child, including strengths and weaknesses.</Text>
+        </Pressable>
+
+        <Pressable
+          onPress={() => router.push("/(teacher)/lesson-focus")}
+          style={({ pressed }) => [styles.card, pressed && { opacity: 0.92 }]}
+        >
           <Text style={styles.title}>Lesson Focus</Text>
           <Text style={styles.desc}>Pick topic focus (MVP screen).</Text>
         </Pressable>
 
-        <Pressable onPress={() => router.push("/(teacher)/upload-words")} style={({ pressed }) => [styles.card, pressed && { opacity: 0.92 }]}>
+        <Pressable
+          onPress={() => router.push("/(teacher)/upload-words")}
+          style={({ pressed }) => [styles.card, pressed && { opacity: 0.92 }]}
+        >
           <Text style={styles.title}>Upload Words</Text>
           <Text style={styles.desc}>Bulk lexicon upload via CSV/text.</Text>
         </Pressable>
 
-        <Pressable onPress={() => router.push("/(teacher)/topics")} style={({ pressed }) => [styles.card, pressed && { opacity: 0.92 }]}>
+        <Pressable
+          onPress={() => router.push("/(teacher)/topics")}
+          style={({ pressed }) => [styles.card, pressed && { opacity: 0.92 }]}
+        >
           <Text style={styles.title}>Manage Topics</Text>
           <Text style={styles.desc}>Create, view, and delete topic categories.</Text>
         </Pressable>
 
-        <Pressable onPress={() => router.push("/(teacher)/recent-tasks")} style={({ pressed }) => [styles.card, pressed && { opacity: 0.92 }]}>
+        <Pressable
+          onPress={() => router.push("/(teacher)/recent-tasks")}
+          style={({ pressed }) => [styles.card, pressed && { opacity: 0.92 }]}
+        >
           <Text style={styles.title}>Recent Tasks</Text>
-          <Text style={styles.desc}>Placeholder list until endpoint exists.</Text>
+          <Text style={styles.desc}>View recent child activity and open analytics.</Text>
         </Pressable>
 
-        <Pressable onPress={() => router.push("/(teacher)/settings")} style={({ pressed }) => [styles.card, pressed && { opacity: 0.92 }]}>
+        <Pressable
+          onPress={() => router.push("/(teacher)/settings")}
+          style={({ pressed }) => [styles.card, pressed && { opacity: 0.92 }]}
+        >
           <Text style={styles.title}>Settings</Text>
           <Text style={styles.desc}>Logout and account options.</Text>
         </Pressable>
@@ -68,7 +97,13 @@ const styles = StyleSheet.create({
   grid: { marginTop: 14, gap: 12 },
   gridWide: { flexDirection: "row", flexWrap: "wrap" },
 
-  card: { borderRadius: RADIUS.xl, padding: 14, backgroundColor: "rgba(255,255,255,0.75)", borderWidth: 1, borderColor: COLORS.stroke },
+  card: {
+    borderRadius: RADIUS.xl,
+    padding: 14,
+    backgroundColor: "rgba(255,255,255,0.75)",
+    borderWidth: 1,
+    borderColor: COLORS.stroke,
+  },
   title: { fontWeight: "900", fontSize: 16, color: COLORS.ink },
   desc: { marginTop: 6, fontWeight: "700", color: "rgba(28,53,87,0.72)" },
 });

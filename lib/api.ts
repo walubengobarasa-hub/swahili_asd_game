@@ -86,8 +86,8 @@ async function http<T>(path: string, opts: FetchOptions = {}): Promise<T> {
   }
 
   const res = await fetch(url, { ...opts, headers, body });
-
   const text = await res.text();
+
   let data: any = null;
   try {
     data = text ? JSON.parse(text) : null;
@@ -96,7 +96,7 @@ async function http<T>(path: string, opts: FetchOptions = {}): Promise<T> {
   }
 
   if (!res.ok) {
-    const msg = typeof data === "string" ? data : JSON.stringify(data);
+    const msg = typeof data === "string" ? data : data?.detail || JSON.stringify(data);
     throw new Error(msg || `HTTP ${res.status}`);
   }
 
@@ -109,6 +109,10 @@ export async function getJSON<T = any>(path: string): Promise<T> {
 
 export async function postJSON<T = any>(path: string, json: any): Promise<T> {
   return http<T>(path, { method: "POST", json });
+}
+
+export async function putJSON<T = any>(path: string, json: any): Promise<T> {
+  return http<T>(path, { method: "PUT", json });
 }
 
 export async function request<T = any>(method: string, path: string, json?: any): Promise<T> {
@@ -132,17 +136,30 @@ export const api = {
   startSession: (payload: { child_id: number; lesson_focus: string }) =>
     postJSON<any>("/sessions/start", payload),
 
-  nextTask: (payload: { session_id: number; child_id?: number }) =>
+  nextTask: (payload: { session_id: number; child_id: number }) =>
     postJSON<any>("/tasks/next", payload),
 
-  submitAnswer: (payload: { session_id: number; child_id?: number; task_id?: number | string; answer: any; correct?: boolean; meta?: any }) =>
-    postJSON<any>("/tasks/submit", payload),
-
-  submitTask: (payload: { session_id: number; child_id?: number; task_id?: number | string; answer: any; correct?: boolean; meta?: any }) =>
-    postJSON<any>("/tasks/submit", payload),
+  submitTask: (payload: {
+    session_id: number;
+    child_id: number;
+    task_id: number | string;
+    answer: any;
+    response_time_ms?: number;
+    skipped?: boolean;
+    hint_used?: boolean;
+    retries?: number;
+    taps?: number;
+    timeouts?: number;
+    pauses?: number;
+    audio_muted?: boolean;
+    abandon_mid_task?: boolean;
+  }) => postJSON<any>("/tasks/submit", payload),
 
   getTopics: () => getJSON<any>("/topics"),
   getChildReport: (childId: number | string) => getJSON<any>(`/reports/child/${childId}`),
+  getTeacherChildReport: (childId: number | string) => getJSON<any>(`/teacher/reports/child/${childId}`),
+  getCaregiverActivity: (limit = 50) => getJSON<any>(`/caregiver/activity?limit=${limit}`),
+  getTeacherChildrenReports: () => getJSON<any>("/teacher/children/reports"),
 
   teacherTopics: {
     list: () => getJSON<any>("/teacher/topics"),
@@ -153,7 +170,13 @@ export const api = {
   caregiverChildren: {
     list: () => getJSON<any>("/caregiver/children"),
     create: (payload: any) => postJSON<any>("/caregiver/children", payload),
+    update: (id: number | string, payload: any) => putJSON<any>(`/caregiver/children/${id}`, payload),
     remove: (id: number | string) => deleteJSON<any>(`/caregiver/children/${id}`),
+  },
+
+  caregiverSettings: {
+    get: (childId: number | string) => getJSON<any>(`/caregiver/settings/${childId}`),
+    update: (payload: any) => postJSON<any>("/caregiver/settings", payload),
   },
 
   childrenPublic: {

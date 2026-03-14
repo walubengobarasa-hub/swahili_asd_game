@@ -1,37 +1,62 @@
 import { router } from "expo-router";
-import React from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import React, { useEffect, useState } from "react";
+import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import GlassCard from "../../components/GlassCard";
 import ResponsiveScreen from "../../components/ResponsiveScreen";
 import TopBar from "../../components/TopBar";
 import { COLORS, RADIUS } from "../../constants/theme";
+import { api } from "../../lib/api";
 
 export default function ActivityHistory() {
+  const [loading, setLoading] = useState(true);
+  const [items, setItems] = useState<any[]>([]);
+  const [err, setErr] = useState<string | null>(null);
+
+  const load = async () => {
+    setLoading(true);
+    setErr(null);
+    try {
+      const data = await api.getCaregiverActivity(40);
+      setItems(Array.isArray(data?.items) ? data.items : []);
+    } catch (e: any) {
+      setErr(e?.message || "Failed to load activity.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    load();
+  }, []);
+
   return (
     <ResponsiveScreen>
       <TopBar title="Activity History" rightIcon="✕" onRight={() => router.back()} />
-      
-      
       <GlassCard>
         <Text style={styles.h1}>Recent Activity</Text>
-        <Text style={styles.p}>
-          This is a preview. It will use <Text style={styles.mono}>GET /caregiver/activity</Text> once the endpoint is ready.
-        </Text>
+        <Text style={styles.p}>Only activity from your linked children is shown here.</Text>
 
-        <View style={{ marginTop: 12, gap: 10 }}>
-          {[
-            { kind: "Match image", word: "mbwa", result: "correct", when: "2 mins ago" },
-            { kind: "Match word", word: "paka", result: "wrong", when: "10 mins ago" },
-            { kind: "Listen & choose", word: "mkate", result: "correct", when: "yesterday" },
-          ].map((r, i) => (
-            <View key={i} style={styles.fakeRow}>
-              <Text style={styles.fakeTitle}>{r.kind} • “{r.word}” • {r.result}</Text>
-              <Text style={styles.fakeMeta}>{r.when}</Text>
-            </View>
-          ))}
-        </View>
+        {loading ? (
+          <ActivityIndicator style={{ marginTop: 16 }} />
+        ) : err ? (
+          <Text style={styles.err}>{err}</Text>
+        ) : items.length === 0 ? (
+          <Text style={styles.empty}>No activity yet.</Text>
+        ) : (
+          <View style={{ marginTop: 12, gap: 10 }}>
+            {items.map((r, i) => (
+              <View key={r.attempt_id ?? i} style={styles.row}>
+                <Text style={styles.fakeTitle}>
+                  {r.child_name} • {r.task_type} • {r.is_correct ? "correct" : "wrong"}
+                </Text>
+                <Text style={styles.fakeMeta}>
+                  {r.lesson_focus} • {r.response_time_ms} ms
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
       </GlassCard>
-
     </ResponsiveScreen>
   );
 }
@@ -39,12 +64,9 @@ export default function ActivityHistory() {
 const styles = StyleSheet.create({
   h1: { fontSize: 18, fontWeight: "900", color: COLORS.ink, textAlign: "center" },
   p: { marginTop: 10, fontWeight: "700", color: "rgba(28,53,87,0.75)", textAlign: "center", lineHeight: 20 },
-  mono: { fontWeight: "900", color: "#7C3AED" },
-
-  fakeRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 10, paddingHorizontal: 12, borderRadius: RADIUS.xl, borderWidth: 1, borderColor: COLORS.stroke, backgroundColor: "rgba(255,255,255,0.65)" },
-  dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: COLORS.green },
-  fakeText: { fontWeight: "800", color: "rgba(28,53,87,0.78)" },
-
-  btn: { marginTop: 14, paddingVertical: 14, borderRadius: RADIUS.xl, backgroundColor: COLORS.green, borderWidth: 1, borderColor: COLORS.greenDark, alignItems: "center" },
-  btnText: { color: "white", fontWeight: "900" },
+  err: { marginTop: 14, color: "#B42318", fontWeight: "800", textAlign: "center" },
+  empty: { marginTop: 14, color: "rgba(28,53,87,0.75)", fontWeight: "700", textAlign: "center" },
+  row: { paddingVertical: 10, paddingHorizontal: 12, borderRadius: RADIUS.xl, borderWidth: 1, borderColor: COLORS.stroke, backgroundColor: "rgba(255,255,255,0.65)" },
+  fakeTitle: { fontWeight: "900", color: COLORS.ink },
+  fakeMeta: { marginTop: 4, fontWeight: "700", color: "rgba(28,53,87,0.72)" },
 });
